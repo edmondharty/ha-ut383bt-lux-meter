@@ -1,0 +1,12 @@
+name: ha-ut353bt
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      # Shared test dependencies (also used by CI)
+      - -r requirements-test.txt
+      # Required by bleak's CoreBluetooth backend for live BLE tests on macOS
+      - pyobjc-framework-CoreBluetooth>=10.0

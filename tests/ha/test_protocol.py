@@ -12,7 +12,7 @@ Bit layout reminder (bit 0 = MSB of the 32-bit big-endian status word):
 """
 import pytest
 
-from ut353bt.protocol import (
+from custom_components.ut353bt.protocol import (
     ACK_PACKET,
     CMD_FAST,
     CMD_HOLD,

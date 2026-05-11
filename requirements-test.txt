@@ -1,0 +1,17 @@
+# Test dependencies for the ut353bt HA integration.
+# Used by both environment_ha.yml (local dev) and .github/workflows/tests.yml (CI).
+
+# HA test harness — pulls in homeassistant core as a test dependency
+pytest-homeassistant-custom-component>=0.13.0
+# HA Bluetooth retry connector (runtime dependency of the component)
+bleak-retry-connector>=3.0.0
+# BLE stack (transitive but pinned for reproducibility)
+bleak>=0.21.0
+# Async test support
+pytest-asyncio>=0.23.0
+# Voluptuous (used by HA config flows)
+voluptuous>=0.14.0
+# Required by homeassistant.components.usb (transitive HA dependency)
+pyserial>=3.5
+# Required by homeassistant.components.usb on newer HA core (Python 3.13+)
+aiousbwatcher>=1.1.0

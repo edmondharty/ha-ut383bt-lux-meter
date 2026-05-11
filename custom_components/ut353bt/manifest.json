@@ -1,0 +1,21 @@
+{
+  "domain": "ut353bt",
+  "name": "Uni-T (Unofficial)",
+  "version": "1.0.0",
+  "documentation": "https://github.com/daweizhangau/ha-uni-t-ble",
+  "issue_tracker": "https://github.com/daweizhangau/ha-uni-t-ble/issues",
+  "dependencies": [
+    "bluetooth"
+  ],
+  "bluetooth": [
+    {
+      "local_name": "UT353BT"
+    }
+  ],
+  "codeowners": [],
+  "requirements": [
+    "bleak-retry-connector>=3.0.0"
+  ],
+  "iot_class": "local_polling",
+  "config_flow": true
+}

@@ -1,0 +1,7 @@
+{
+  "name": "Uni-T (Unofficial)",
+  "domain": "ut353bt",
+  "documentation": "https://github.com/daweizhangau/ha-uni-t-ble",
+  "iot_class": "local_polling",
+  "homeassistant": "2024.1.0"
+}
