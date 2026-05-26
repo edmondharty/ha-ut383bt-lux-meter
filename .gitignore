@@ -50,3 +50,5 @@ home-assistant_v2.db
 
 # Local-only scripts (not published)
 local/
+tmp/
+scripts/deploy.env

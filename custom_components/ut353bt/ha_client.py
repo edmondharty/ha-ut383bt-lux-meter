@@ -18,6 +18,7 @@ from typing import Callable, Optional
 
 from bleak import BleakClient
 from bleak.backends.device import BLEDevice
+from bleak.exc import BleakDBusError, BleakError
 from bleak_retry_connector import (
     BleakClientWithServiceCache,
     establish_connection,
@@ -215,9 +216,20 @@ class UT353BTHAClient:
         """Request one measurement and return it.
 
         Reconnects automatically if the connection was dropped since the last
-        poll.  On first connection the UT353BT device requires a "wake-up"
-        CMD_QUERY before it starts streaming — if the first attempt times out
-        the method disconnects, reconnects, and retries once before raising.
+        poll.  Handles two reconnect triggers:
+
+        1. BlueZ GATT/DBus error — BlueZ can tear down its internal GATT objects
+           and delay firing the disconnect callback by several seconds.  During
+           that window ``is_connected`` is still True but any write raises
+           ``BleakDBusError`` (UnknownObject).  We treat this as a forced
+           disconnect, clean up, and reconnect immediately.
+
+        2. Timeout — on first connection the UT353BT requires a "wake-up"
+           CMD_QUERY; if it times out we disconnect, reconnect, and retry.
+
+        After any reconnect we retry the query up to _POST_RECONNECT_ATTEMPTS
+        times with a short pause between attempts.  The device is connected but
+        can take a moment to start responding after a fresh GATT subscription.
         """
         if not self.is_connected:
             down_for = time.monotonic() - getattr(self, '_disconnect_time', time.monotonic())
@@ -225,24 +237,70 @@ class UT353BTHAClient:
             await self.connect()
 
         _t = time.monotonic()
-        reading = await self._query_once()
+        try:
+            reading = await self._query_once()
+        except (BleakDBusError, BleakError) as err:
+            _LOGGER.warning(
+                "GATT error during poll (%.2fs) — forcing reconnect: %s",
+                time.monotonic() - _t, err,
+            )
+            self._client = None
+            self._notify_status_changed()
+            await asyncio.sleep(0.5)
+            await self.connect()
+            reading = await self._query_after_reconnect(_t, "GATT-error")
+            if reading is not None:
+                return reading
+            raise asyncio.TimeoutError("No response from UT353BT within timeout") from err
+
         if reading is not None:
             _LOGGER.debug("poll() success in %.2fs", time.monotonic() - _t)
             return reading
 
         # First query timed out — the device needs a reconnect to start streaming.
-        _LOGGER.debug("First CMD_QUERY timed out after %.2fs — reconnecting and retrying once", time.monotonic() - _t)
+        _LOGGER.debug("First CMD_QUERY timed out after %.2fs — reconnecting and retrying", time.monotonic() - _t)
         await self.disconnect()
         await asyncio.sleep(0.5)
         await self.connect()
 
-        reading = await self._query_once()
+        reading = await self._query_after_reconnect(_t, "wake-up")
         if reading is not None:
-            _LOGGER.debug("poll() success after wake-up retry in %.2fs total", time.monotonic() - _t)
             return reading
 
-        _LOGGER.warning("poll() failed after two attempts (%.2fs total)", time.monotonic() - _t)
+        _LOGGER.warning("poll() failed after wake-up reconnect (%.2fs total)", time.monotonic() - _t)
         raise asyncio.TimeoutError("No response from UT353BT within timeout")
+
+    # Number of query attempts after a reconnect (with _POST_RECONNECT_PAUSE between each).
+    _POST_RECONNECT_ATTEMPTS = 3
+    _POST_RECONNECT_PAUSE    = 1.0  # seconds
+
+    async def _query_after_reconnect(self, _t: float, label: str) -> Optional[SoundReading]:
+        """Retry _query_once() up to _POST_RECONNECT_ATTEMPTS times after a reconnect.
+
+        The device is connected and subscribed but may take a moment to start
+        responding after a fresh GATT subscription.  Returns the first reading
+        received, or None if all attempts time out.
+        """
+        for attempt in range(1, self._POST_RECONNECT_ATTEMPTS + 1):
+            reading = await self._query_once()
+            if reading is not None:
+                _LOGGER.debug(
+                    "poll() success after %s reconnect (attempt %d/%d) in %.2fs total",
+                    label, attempt, self._POST_RECONNECT_ATTEMPTS, time.monotonic() - _t,
+                )
+                return reading
+            if attempt < self._POST_RECONNECT_ATTEMPTS:
+                _LOGGER.debug(
+                    "Post-%s query attempt %d/%d timed out — retrying in %.1fs",
+                    label, attempt, self._POST_RECONNECT_ATTEMPTS, self._POST_RECONNECT_PAUSE,
+                )
+                await asyncio.sleep(self._POST_RECONNECT_PAUSE)
+
+        _LOGGER.warning(
+            "poll() failed after %s reconnect — all %d attempts timed out (%.2fs total)",
+            label, self._POST_RECONNECT_ATTEMPTS, time.monotonic() - _t,
+        )
+        return None
 
     async def _query_once(self) -> Optional[SoundReading]:
         """Send CMD_QUERY and wait up to poll_timeout for a notification.

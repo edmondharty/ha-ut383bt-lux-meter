@@ -1,7 +1,7 @@
 {
   "domain": "ut353bt",
   "name": "Uni-T (Unofficial)",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "documentation": "https://github.com/daweizhangau/ha-uni-t-ble",
   "issue_tracker": "https://github.com/daweizhangau/ha-uni-t-ble/issues",
   "dependencies": [

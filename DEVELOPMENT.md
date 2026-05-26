@@ -6,38 +6,19 @@ This document is for contributors and developers. For user installation instruct
 
 ## Repository layout
 
-```
-custom_components/ut353bt/   # HACS component (install this in HA)
-│  __init__.py               # Integration setup / teardown
-│  config_flow.py            # UI discovery & options flows
-│  coordinator.py            # DataUpdateCoordinator (polling)
-│  ha_client.py              # HA-native BLE client (bleak-retry-connector)
-│  protocol.py               # Pure-Python packet parser & command builder
-│  const.py                  # Constants
-│  sensor.py                 # Sound level + diagnostic sensor entities
-│  binary_sensor.py          # Battery low binary sensor entity
-│  select.py                 # Mode & Speed select entities
-│  switch.py                 # Hold switch entity
-│  diagnostics.py            # HA diagnostics download support
-│  manifest.json             # HACS / HA manifest
-│  strings.json              # UI strings
-│  translations/en.json      # English translations
-tests/
-│  test_live_ble.py          # Live BLE hardware tests (skipped by default)
-│  ha/
-│     conftest.py            # Shared fixtures for HA integration tests
-│     test_config_flow.py    # Config & options flow tests
-│     test_coordinator.py    # Coordinator tests
-│     test_diagnostics.py    # Diagnostics tests
-│     test_entities.py       # Entity state & control tests
-│     test_ha_client.py      # HA BLE client tests (mocked BLE)
-│     test_sensor.py         # Sensor entity tests
-│     test_protocol.py       # Protocol parser unit tests (no BLE needed)
-.github/workflows/
-│  tests.yml                 # CI — runs unit tests on every push / PR
-hacs.json                    # HACS metadata
-environment_ha.yml           # Conda environment for HA integration tests
-```
+| Path | Purpose |
+|------|---------|
+| `custom_components/ut353bt/` | The HACS component — install this in HA |
+| `tests/` | Unit tests (BLE fully mocked — no hardware needed) |
+| `tests/test_live_ble.py` | Live hardware tests (opt-in, skipped by default) |
+| `scripts/` | Developer task runner (`tasks.sh`) and local config |
+| `.github/instructions/` | Agent instructions for local dev environment |
+| `.github/workflows/` | CI — runs unit tests on every push / PR |
+
+Key source files in `custom_components/ut353bt/`:
+- **`ha_client.py`** — BLE connection lifecycle (connect, poll, reconnect)
+- **`coordinator.py`** — HA `DataUpdateCoordinator` wrapper; drives polling
+- **`protocol.py`** — pure-Python packet parser and command builder (no HA/BLE deps)
 
 ---
 
@@ -84,15 +65,48 @@ On macOS you may be prompted for Bluetooth permission — grant it under
 
 ---
 
-## Installing in a local HA development instance
+## Deploying to a local HA instance
 
 ```bash
-# Symlink the component into your HA config directory (no copy needed)
-ln -s $(pwd)/custom_components/ut353bt \
-      /path/to/ha-config/custom_components/ut353bt
+./scripts/tasks.sh deploy
 ```
 
-Restart HA and the integration will be available for testing.
+This rsyncs `custom_components/ut353bt/` to your HA host.
+
+First-time setup:
+```bash
+cp scripts/deploy.env.example scripts/deploy.env
+# edit scripts/deploy.env with your HA_HOST and HA_TARGET
+```
+
+`scripts/deploy.env` is gitignored — each contributor keeps their own.
+
+---
+
+## Pulling logs from Home Assistant
+
+First, enable debug logging in your HA `configuration.yaml`:
+
+```yaml
+logger:
+  default: warning
+  logs:
+    custom_components.ut353bt: debug
+    bleak_retry_connector: debug
+    habluetooth: debug
+```
+
+Restart HA after adding this, then pull connection events:
+
+```bash
+./scripts/tasks.sh logs
+```
+
+Log files on the HA host (default path):
+- `<config>/home-assistant.log` (current)
+- `<config>/home-assistant.log.1` (previous)
+
+Save raw extracts to `tmp/` (gitignored) for investigation.
 
 ---
 
