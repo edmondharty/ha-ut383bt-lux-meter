@@ -1,4 +1,4 @@
-"""Data update coordinator for the Uni-T UT353BT integration."""
+"""Data update coordinator for the Uni-T UT383BT integration."""
 from __future__ import annotations
 
 import asyncio
@@ -13,18 +13,18 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL, DEFAULT_POLL_TIMEOUT, DOMAIN
-from .ha_client import DeviceNotAvailableError, UT353BTHAClient
-from .protocol import SoundReading
+from .ha_client import DeviceNotAvailableError, UT383BTHAClient
+from .protocol import LuxReading
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class UT353BTCoordinator(DataUpdateCoordinator[SoundReading]):
+class UT383BTCoordinator(DataUpdateCoordinator[LuxReading]):
     """Coordinator that polls the meter on a configurable interval.
 
     Keeps the BLE connection alive between polls and reconnects automatically
     on disconnection.  The ``client`` property exposes the underlying
-    ``UT353BTHAClient`` so that entities can issue control commands.
+    ``UT383BTHAClient``.
     """
 
     config_entry: ConfigEntry
@@ -32,7 +32,7 @@ class UT353BTCoordinator(DataUpdateCoordinator[SoundReading]):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self._entry      = entry
         self._address    = entry.unique_id  # MAC address stored as unique_id
-        self._client: Optional[UT353BTHAClient] = None
+        self._client: Optional[UT383BTHAClient] = None
 
         interval = timedelta(seconds=entry.options.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL))
         super().__init__(
@@ -52,9 +52,8 @@ class UT353BTCoordinator(DataUpdateCoordinator[SoundReading]):
         We create the client with whatever we have — connect() always refreshes
         the BLEDevice via ble_device_callback before connecting.
         """
-        from bleak.backends.device import BLEDevice
-        ble_device = self._get_ble_device() or BLEDevice(self._address, "UT353BT", {})
-        self._client = UT353BTHAClient(
+        ble_device = self._get_ble_device() or BLEDevice(self._address, "UT383BT", {})
+        self._client = UT383BTHAClient(
             ble_device,
             poll_timeout=DEFAULT_POLL_TIMEOUT,
             ble_device_callback=self._get_ble_device,
@@ -71,7 +70,7 @@ class UT353BTCoordinator(DataUpdateCoordinator[SoundReading]):
 
     # ── DataUpdateCoordinator interface ────────────────────────────────────────
 
-    async def _async_update_data(self) -> SoundReading:
+    async def _async_update_data(self) -> LuxReading:
         """Poll the meter for the latest reading."""
         if self._client is None:
             raise UpdateFailed("Client not initialised")
@@ -92,10 +91,10 @@ class UT353BTCoordinator(DataUpdateCoordinator[SoundReading]):
             raise UpdateFailed(f"Device {self._address} not in Bluetooth registry") from None
         except asyncio.TimeoutError as err:
             _LOGGER.warning("Poll timed out — device unreachable, sensors will show Unavailable")
-            raise UpdateFailed("Timeout waiting for UT353BT response") from err
+            raise UpdateFailed("Timeout waiting for UT383BT response") from err
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning("Poll failed: %s (%s)", err, type(err).__name__)
-            raise UpdateFailed(f"Error communicating with UT353BT: {err}") from err
+            raise UpdateFailed(f"Error communicating with UT383BT: {err}") from err
 
     # ── Options-flow hook ──────────────────────────────────────────────────────
 
@@ -110,8 +109,8 @@ class UT353BTCoordinator(DataUpdateCoordinator[SoundReading]):
     # ── Helpers ────────────────────────────────────────────────────────────────
 
     @property
-    def client(self) -> UT353BTHAClient:
-        """The underlying BLE client (used by entities for control commands)."""
+    def client(self) -> UT383BTHAClient:
+        """The underlying BLE client."""
         assert self._client is not None, "Client accessed before async_setup()"
         return self._client
 

@@ -32,4 +32,4 @@ jobs:
           pip install -r requirements-test.txt
 
       - name: Run tests
-        run: pytest tests/ --ignore=tests/test_live_ble.py -q
+        run: pytest tests/ -q

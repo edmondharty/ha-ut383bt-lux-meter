@@ -34,6 +34,9 @@ dmypy.json
 .idea/
 *.iml
 
+# Claude Code local session/settings
+.claude/
+
 # macOS
 .DS_Store
 .AppleDouble
@@ -52,3 +55,10 @@ home-assistant_v2.db
 local/
 tmp/
 scripts/deploy.env
+
+# BLE capture artifacts (reverse-engineering, not for distribution)
+*.zip
+btsnoop_hci.log
+*.btsnoop
+_bug/
+_bugcheck/

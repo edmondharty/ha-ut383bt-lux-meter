@@ -2,12 +2,12 @@
   "config": {
     "step": {
       "bluetooth_confirm": {
-        "title": "Uni-T UT353BT Sound Level Meter",
+        "title": "Uni-T UT383BT Lux Meter",
         "description": "Set up **{name}** ({address})?"
       },
       "user": {
-        "title": "Uni-T UT353BT — Manual Setup",
-        "description": "Enter the Bluetooth MAC address of your UT353BT meter.\nMake sure the meter is powered on with Bluetooth enabled.",
+        "title": "Uni-T UT383BT — Manual Setup",
+        "description": "Enter the Bluetooth MAC address of your UT383BT meter.\nMake sure the meter is powered on with Bluetooth enabled.",
         "data": {
           "address": "Bluetooth address (e.g. AA:BB:CC:DD:EE:FF)"
         }
@@ -15,13 +15,13 @@
     },
     "abort": {
       "already_configured": "This meter is already configured.",
-      "no_devices_found": "No UT353BT meters found nearby."
+      "no_devices_found": "No UT383BT meters found nearby."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "UT353BT Options",
+        "title": "UT383BT Options",
         "data": {
           "poll_interval": "Polling interval (seconds)"
         }

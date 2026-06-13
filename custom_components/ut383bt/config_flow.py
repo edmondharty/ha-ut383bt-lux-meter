@@ -1,4 +1,4 @@
-"""Config flow for the Uni-T UT353BT integration."""
+"""Config flow for the Uni-T UT383BT integration."""
 from __future__ import annotations
 
 import logging
@@ -26,8 +26,8 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-class UT353BTConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle discovery and manual configuration of the UT353BT."""
+class UT383BTConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Handle discovery and manual configuration of the UT383BT."""
 
     VERSION = 1
 
@@ -83,7 +83,7 @@ class UT353BTConfigFlow(ConfigFlow, domain=DOMAIN):
             await self.async_set_unique_id(address)
             self._abort_if_unique_id_configured()
             return self.async_create_entry(
-                title=f"UT353BT ({address})",
+                title=f"UT383BT ({address})",
                 data={"address": address},
             )
 
@@ -99,11 +99,11 @@ class UT353BTConfigFlow(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry: ConfigEntry) -> "UT353BTOptionsFlow":
-        return UT353BTOptionsFlow(config_entry)
+    def async_get_options_flow(config_entry: ConfigEntry) -> "UT383BTOptionsFlow":
+        return UT383BTOptionsFlow(config_entry)
 
 
-class UT353BTOptionsFlow(OptionsFlow):
+class UT383BTOptionsFlow(OptionsFlow):
     """Handle options (poll interval)."""
 
     def __init__(self, config_entry: ConfigEntry) -> None:

@@ -1,4 +1,4 @@
-"""HA-native BLE client for the Uni-T UT353BT sound level meter.
+"""HA-native BLE client for the Uni-T UT383BT lux meter.
 
 Uses Home Assistant's Bluetooth integration APIs so that both the built-in
 Bluetooth adapter and ESPHome Bluetooth proxies are transparently supported.
@@ -31,19 +31,9 @@ from .const import (
     DATA_IN_UUID,
     DATA_OUT_UUID,
     DEFAULT_POLL_TIMEOUT,
+    SERIAL_NUMBER_UUID,
 )
-from .protocol import (
-    CMD_FAST,
-    CMD_HOLD,
-    CMD_MAX,
-    CMD_MIN,
-    CMD_QUERY,
-    CMD_SLOW,
-    Mode,
-    SoundReading,
-    Speed,
-    parse_packet,
-)
+from .protocol import CMD_QUERY, LuxReading, parse_packet
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -56,8 +46,8 @@ class DeviceNotAvailableError(Exception):
     """
 
 
-class UT353BTHAClient:
-    """Keep-alive BLE client for the UT353BT that uses HA's Bluetooth stack.
+class UT383BTHAClient:
+    """Keep-alive BLE client for the UT383BT that uses HA's Bluetooth stack.
 
     Parameters
     ----------
@@ -83,9 +73,10 @@ class UT353BTHAClient:
         self._client: Optional[BleakClient] = None
         self._connecting: bool = False
         self._connect_lock: asyncio.Lock = asyncio.Lock()
-        self._queue: asyncio.Queue[SoundReading] = asyncio.Queue()
-        self._last_reading: Optional[SoundReading] = None
+        self._queue: asyncio.Queue[LuxReading] = asyncio.Queue()
+        self._last_reading: Optional[LuxReading] = None
         self._last_seen_at: Optional[datetime] = None
+        self._serial_number: Optional[str] = None
 
     # ── Connection ─────────────────────────────────────────────────────────────
 
@@ -144,10 +135,31 @@ class UT353BTHAClient:
         except Exception:  # noqa: BLE001
             pass
         await self._client.start_notify(DATA_OUT_UUID, self._on_notification)
+        # Read the serial number once (Device Information Service, 0x2a25).
+        # Cached so we only hit the GATT characteristic on the first connect.
+        await self._read_serial_number()
         # Give the stack a moment to activate the subscription before the
         # first poll command is sent.
         await asyncio.sleep(0.3)
         _LOGGER.debug("Connected and subscribed to notifications")
+
+    async def _read_serial_number(self) -> None:
+        """Read and cache the DIS serial number, if not already known.
+
+        Best-effort: any failure (characteristic absent, read not permitted, or
+        transient GATT error) is swallowed and leaves the serial as None so it
+        can be retried on the next connect.
+        """
+        if self._serial_number is not None or self._client is None:
+            return
+        try:
+            raw = await self._client.read_gatt_char(SERIAL_NUMBER_UUID)
+            serial = bytes(raw).decode("ascii", errors="replace").strip("\x00").strip()
+            if serial:
+                self._serial_number = serial
+                _LOGGER.debug("Read serial number: %s", serial)
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("Could not read serial number characteristic: %s", err)
 
     async def disconnect(self) -> None:
         """Gracefully stop notifications and disconnect."""
@@ -172,7 +184,7 @@ class UT353BTHAClient:
             _LOGGER.debug("Disconnect during connect phase — establish_connection will retry")
             return
         self._disconnect_time = time.monotonic()
-        _LOGGER.warning("UT353BT disconnected unexpectedly — coordinator will reconnect on next poll")
+        _LOGGER.warning("UT383BT disconnected unexpectedly — coordinator will reconnect on next poll")
         self._client = None
         self._notify_status_changed()
 
@@ -203,6 +215,11 @@ class UT353BTHAClient:
         """UTC datetime of the last successful reading, or None."""
         return self._last_seen_at
 
+    @property
+    def serial_number(self) -> Optional[str]:
+        """Cached Device-Information-Service serial number, or None if unread."""
+        return self._serial_number
+
     # ── Notification handler ───────────────────────────────────────────────────
 
     def _on_notification(self, sender: object, data: bytearray) -> None:
@@ -212,7 +229,7 @@ class UT353BTHAClient:
 
     # ── Polling ────────────────────────────────────────────────────────────────
 
-    async def poll(self) -> SoundReading:
+    async def poll(self) -> LuxReading:
         """Request one measurement and return it.
 
         Reconnects automatically if the connection was dropped since the last
@@ -224,7 +241,7 @@ class UT353BTHAClient:
            ``BleakDBusError`` (UnknownObject).  We treat this as a forced
            disconnect, clean up, and reconnect immediately.
 
-        2. Timeout — on first connection the UT353BT requires a "wake-up"
+        2. Timeout — on first connection the meter requires a "wake-up"
            CMD_QUERY; if it times out we disconnect, reconnect, and retry.
 
         After any reconnect we retry the query up to _POST_RECONNECT_ATTEMPTS
@@ -251,7 +268,7 @@ class UT353BTHAClient:
             reading = await self._query_after_reconnect(_t, "GATT-error")
             if reading is not None:
                 return reading
-            raise asyncio.TimeoutError("No response from UT353BT within timeout") from err
+            raise asyncio.TimeoutError("No response from UT383BT within timeout") from err
 
         if reading is not None:
             _LOGGER.debug("poll() success in %.2fs", time.monotonic() - _t)
@@ -268,13 +285,13 @@ class UT353BTHAClient:
             return reading
 
         _LOGGER.warning("poll() failed after wake-up reconnect (%.2fs total)", time.monotonic() - _t)
-        raise asyncio.TimeoutError("No response from UT353BT within timeout")
+        raise asyncio.TimeoutError("No response from UT383BT within timeout")
 
     # Number of query attempts after a reconnect (with _POST_RECONNECT_PAUSE between each).
     _POST_RECONNECT_ATTEMPTS = 3
     _POST_RECONNECT_PAUSE    = 1.0  # seconds
 
-    async def _query_after_reconnect(self, _t: float, label: str) -> Optional[SoundReading]:
+    async def _query_after_reconnect(self, _t: float, label: str) -> Optional[LuxReading]:
         """Retry _query_once() up to _POST_RECONNECT_ATTEMPTS times after a reconnect.
 
         The device is connected and subscribed but may take a moment to start
@@ -302,7 +319,7 @@ class UT353BTHAClient:
         )
         return None
 
-    async def _query_once(self) -> Optional[SoundReading]:
+    async def _query_once(self) -> Optional[LuxReading]:
         """Send CMD_QUERY and wait up to poll_timeout for a notification.
 
         Returns the reading, or None on timeout (without raising).
@@ -324,73 +341,6 @@ class UT353BTHAClient:
             await asyncio.sleep(0.05)
 
         return None
-
-    # ── Controls ───────────────────────────────────────────────────────────────
-
-    async def _send_control(self, cmd: bytes) -> None:
-        """Write a control command (write-without-response)."""
-        if not self.is_connected:
-            await self.connect()
-        assert self._client is not None
-        await self._client.write_gatt_char(DATA_IN_UUID, cmd, response=False)
-
-    async def set_speed(self, speed: Speed) -> None:
-        """Set response speed to Fast or Slow."""
-        cmd = CMD_FAST if speed == Speed.FAST else CMD_SLOW
-        await self._send_control(cmd)
-        await asyncio.sleep(0.15)  # let the device commit the state change
-        _LOGGER.debug("Speed set to %s", speed.value)
-
-    async def set_mode(self, target: Mode) -> None:
-        """Set measurement mode (Normal / Max / Min).
-
-        The device only supports two commands for mode change:
-          - ``CMD_MAX`` transitions Normal → Max.
-          - ``CMD_MIN`` advances Max → Min, or Min → Normal.
-
-        This method computes the minimal command sequence from the last known
-        mode to reach ``target``.
-        """
-        current = self._last_reading.mode if self._last_reading else Mode.UNKNOWN
-
-        if current == target:
-            return
-
-        # Normalise unknown: assume we are in Normal so we can plan from there.
-        if current == Mode.UNKNOWN:
-            current = Mode.NORMAL
-
-        # Transition table from current → target
-        transitions: dict[tuple[Mode, Mode], list[bytes]] = {
-            (Mode.NORMAL, Mode.MAX):    [CMD_MAX],
-            (Mode.NORMAL, Mode.MIN):    [CMD_MAX, CMD_MIN],
-            (Mode.MAX,    Mode.MIN):    [CMD_MIN],
-            (Mode.MAX,    Mode.NORMAL): [CMD_MIN, CMD_MIN],
-            (Mode.MIN,    Mode.NORMAL): [CMD_MIN],
-            (Mode.MIN,    Mode.MAX):    [CMD_MIN, CMD_MAX],
-        }
-        cmds = transitions.get((current, target))
-        if cmds is None:
-            _LOGGER.warning("No transition defined from %s to %s", current, target)
-            return
-
-        for cmd in cmds:
-            await self._send_control(cmd)
-            await asyncio.sleep(0.1)  # Give the device time to process each step
-        _LOGGER.debug("Mode transitioned %s → %s", current.value, target.value)
-
-    async def set_hold(self, hold: bool) -> None:
-        """Enable or disable freeze-hold.
-
-        Sends ``CMD_HOLD`` only when the desired state differs from the last
-        known state (avoiding spurious toggles).
-        """
-        current_hold = self._last_reading.hold if self._last_reading else None
-        if current_hold == hold:
-            return
-        await self._send_control(CMD_HOLD)
-        await asyncio.sleep(0.15)  # let the device commit the state change
-        _LOGGER.debug("Hold toggled → %s", hold)
 
     def update_ble_device(self, ble_device: BLEDevice) -> None:
         """Update the underlying BLEDevice reference.
