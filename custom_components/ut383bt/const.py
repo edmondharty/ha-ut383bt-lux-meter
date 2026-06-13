@@ -6,9 +6,6 @@ DOMAIN = "ut383bt"
 DATA_IN_UUID  = "0000ff01-0000-1000-8000-00805f9b34fb"  # Write-without-response (poll command)
 DATA_OUT_UUID = "0000ff02-0000-1000-8000-00805f9b34fb"  # Notify (measurement stream)
 
-# Device Information Service — serial number characteristic (0x2a25).
-SERIAL_NUMBER_UUID = "00002a25-0000-1000-8000-00805f9b34fb"
-
 # Config / options keys
 CONF_POLL_INTERVAL = "poll_interval"
 
@@ -21,7 +18,6 @@ DEFAULT_POLL_TIMEOUT  = 3.0  # seconds — time to wait for a BLE response
 
 # Entity unique-ID suffixes
 SUFFIX_ILLUMINANCE       = "illuminance"
-SUFFIX_SERIAL            = "serial_number"
 SUFFIX_CONNECTION_STATUS = "connection_status"
 SUFFIX_RSSI              = "rssi"
 SUFFIX_LAST_SEEN         = "last_seen"

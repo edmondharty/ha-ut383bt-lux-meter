@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 
 from .const import CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL, DOMAIN
 
-_REDACT = {"address", "serial_number"}
+_REDACT = {"address"}
 
 
 async def async_get_config_entry_diagnostics(
@@ -33,7 +33,6 @@ async def async_get_config_entry_diagnostics(
 
     data: dict[str, Any] = {
         "address":            entry.unique_id,
-        "serial_number":      client.serial_number if client is not None else None,
         "connection_status":  client.connection_status if client is not None else "Disconnected",
         "last_seen_at":       client.last_seen_at.isoformat() if (client is not None and client.last_seen_at is not None) else None,
         "rssi":               coordinator.get_rssi(),

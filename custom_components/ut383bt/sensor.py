@@ -25,7 +25,6 @@ from .const import (
     SUFFIX_ILLUMINANCE,
     SUFFIX_LAST_SEEN,
     SUFFIX_RSSI,
-    SUFFIX_SERIAL,
 )
 from .coordinator import UT383BTCoordinator
 
@@ -38,7 +37,6 @@ async def async_setup_entry(
     coordinator: UT383BTCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities([
         IlluminanceSensor(coordinator, entry),
-        SerialNumberSensor(coordinator, entry),
         ConnectionStatusSensor(coordinator, entry),
         RSSISensor(coordinator, entry),
         LastSeenSensor(coordinator, entry),
@@ -71,32 +69,6 @@ class IlluminanceSensor(CoordinatorEntity[UT383BTCoordinator], SensorEntity):
         if self.coordinator.data is None:
             return None
         return self.coordinator.data.illuminance
-
-
-class SerialNumberSensor(CoordinatorEntity[UT383BTCoordinator], SensorEntity):
-    """Device serial number, read from the Device Information Service."""
-
-    _attr_has_entity_name = True
-    _attr_name            = "Serial Number"
-    _attr_icon            = "mdi:barcode"
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-
-    def __init__(self, coordinator: UT383BTCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator)
-        self._attr_unique_id  = f"{entry.unique_id}_{SUFFIX_SERIAL}"
-        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, entry.unique_id)})  # type: ignore[arg-type]
-
-    @property
-    def native_value(self) -> str | None:
-        if self.coordinator._client is None:
-            return None
-        return self.coordinator._client.serial_number
-
-    # The serial is read once on connect; report it whenever known, even if a
-    # later poll fails and the measurement sensor goes Unavailable.
-    @property
-    def available(self) -> bool:
-        return True
 
 
 class ConnectionStatusSensor(CoordinatorEntity[UT383BTCoordinator], SensorEntity):

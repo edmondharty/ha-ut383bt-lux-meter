@@ -21,7 +21,6 @@ work out of the box.
 | Entity | Type | Description |
 |---|---|---|
 | Illuminance | Sensor | Current reading in lux, updated on each poll |
-| Serial Number | Sensor *(diagnostic)* | Device serial, read from the BLE Device Information service |
 | Connection Status | Sensor *(diagnostic)* | `Connected` / `Connecting` / `Disconnected` |
 | Signal Strength | Sensor *(diagnostic)* | RSSI in dBm |
 | Last Seen | Sensor *(diagnostic)* | Timestamp of the most recent successful reading |
@@ -101,7 +100,7 @@ Contributions of captures covering these states are welcome.
 
 To help troubleshoot issues, open the device page and click **Download diagnostics**.
 The downloaded JSON contains connection state, last reading, signal strength, and other
-debug info — the MAC address and serial number are redacted automatically.
+debug info — the MAC address is redacted automatically.
 
 ---
 

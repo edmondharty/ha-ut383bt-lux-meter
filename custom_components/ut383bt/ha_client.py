@@ -31,7 +31,6 @@ from .const import (
     DATA_IN_UUID,
     DATA_OUT_UUID,
     DEFAULT_POLL_TIMEOUT,
-    SERIAL_NUMBER_UUID,
 )
 from .protocol import CMD_QUERY, LuxReading, parse_packet
 
@@ -76,7 +75,6 @@ class UT383BTHAClient:
         self._queue: asyncio.Queue[LuxReading] = asyncio.Queue()
         self._last_reading: Optional[LuxReading] = None
         self._last_seen_at: Optional[datetime] = None
-        self._serial_number: Optional[str] = None
 
     # ── Connection ─────────────────────────────────────────────────────────────
 
@@ -135,31 +133,10 @@ class UT383BTHAClient:
         except Exception:  # noqa: BLE001
             pass
         await self._client.start_notify(DATA_OUT_UUID, self._on_notification)
-        # Read the serial number once (Device Information Service, 0x2a25).
-        # Cached so we only hit the GATT characteristic on the first connect.
-        await self._read_serial_number()
         # Give the stack a moment to activate the subscription before the
         # first poll command is sent.
         await asyncio.sleep(0.3)
         _LOGGER.debug("Connected and subscribed to notifications")
-
-    async def _read_serial_number(self) -> None:
-        """Read and cache the DIS serial number, if not already known.
-
-        Best-effort: any failure (characteristic absent, read not permitted, or
-        transient GATT error) is swallowed and leaves the serial as None so it
-        can be retried on the next connect.
-        """
-        if self._serial_number is not None or self._client is None:
-            return
-        try:
-            raw = await self._client.read_gatt_char(SERIAL_NUMBER_UUID)
-            serial = bytes(raw).decode("ascii", errors="replace").strip("\x00").strip()
-            if serial:
-                self._serial_number = serial
-                _LOGGER.debug("Read serial number: %s", serial)
-        except Exception as err:  # noqa: BLE001
-            _LOGGER.debug("Could not read serial number characteristic: %s", err)
 
     async def disconnect(self) -> None:
         """Gracefully stop notifications and disconnect."""
@@ -214,11 +191,6 @@ class UT383BTHAClient:
     def last_seen_at(self) -> Optional[datetime]:
         """UTC datetime of the last successful reading, or None."""
         return self._last_seen_at
-
-    @property
-    def serial_number(self) -> Optional[str]:
-        """Cached Device-Information-Service serial number, or None if unread."""
-        return self._serial_number
 
     # ── Notification handler ───────────────────────────────────────────────────
 
