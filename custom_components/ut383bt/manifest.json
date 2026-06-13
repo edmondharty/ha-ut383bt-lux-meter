@@ -1,7 +1,7 @@
 {
   "domain": "ut383bt",
   "name": "Uni-T UT383BT Lux Meter (Unofficial)",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "documentation": "https://github.com/edmondharty/ha-ut383bt-lux-meter",
   "issue_tracker": "https://github.com/edmondharty/ha-ut383bt-lux-meter/issues",
   "dependencies": [
